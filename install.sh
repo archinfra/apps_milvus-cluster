@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.2"
+APP_VERSION="0.1.3"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -30,7 +30,9 @@ ENABLE_SERVICEMONITOR="true"
 SERVICE_MONITOR_INTERVAL="30s"
 SERVICE_MONITOR_SCRAPE_TIMEOUT="10s"
 AUTO_YES="false"
+COMPACT_MODE="false"
 HELM_ARGS=()
+MINIO_MODE="distributed"
 
 MILVUS_PROXY_REPLICAS="${MILVUS_PROXY_REPLICAS:-2}"
 MILVUS_PROXY_REQUEST_CPU="${MILVUS_PROXY_REQUEST_CPU:-200m}"
@@ -143,6 +145,7 @@ Core options:
   --registry-user <user>               Optional registry username
   --registry-password <password>       Optional registry password
   --skip-image-prepare                 Reuse images already present in the target registry
+  --compact                            Single-node compact profile for test environments
   -y, --yes                            Skip confirmation
 
 Monitoring:
@@ -185,6 +188,7 @@ Environment-based resource tuning examples:
 
 Examples:
   ${cmd} install -y
+  ${cmd} install --compact --skip-image-prepare -y
   ${cmd} install --mode standalone --mq woodpecker -y
   ${cmd} install --mq pulsar --pulsar-replicas 5 --zookeeper-replicas 5 -y
   ${cmd} install --skip-image-prepare --registry sealos.hub:5000/kube4 -y
@@ -262,6 +266,10 @@ parse_args() {
         ;;
       --skip-image-prepare)
         SKIP_IMAGE_PREPARE="true"
+        shift
+        ;;
+      --compact)
+        COMPACT_MODE="true"
         shift
         ;;
       --enable-metrics)
@@ -400,6 +408,24 @@ normalize_flags() {
       die "--streaming must be true or false"
       ;;
   esac
+
+  if [[ "${ENABLE_SERVICEMONITOR}" == "true" ]]; then
+    ENABLE_METRICS="true"
+  fi
+
+  if [[ "${COMPACT_MODE}" == "true" ]]; then
+    MILVUS_PROXY_REPLICAS="1"
+    MILVUS_QUERYNODE_REPLICAS="1"
+    MILVUS_DATANODE_REPLICAS="1"
+    MILVUS_INDEXNODE_REPLICAS="1"
+    MIX_COORDINATOR_REPLICAS="1"
+    ETCD_REPLICAS="1"
+    MINIO_REPLICAS="1"
+    MINIO_MODE="standalone"
+    PULSAR_REPLICAS="1"
+    ZOOKEEPER_REPLICAS="1"
+    BOOKKEEPER_REPLICAS="1"
+  fi
 }
 
 check_deps() {
@@ -423,6 +449,7 @@ confirm() {
   echo "Streaming: ${STREAMING_ENABLED}"
   echo "Metrics: ${ENABLE_METRICS}"
   echo "ServiceMonitor: ${ENABLE_SERVICEMONITOR}"
+  echo "Compact mode: ${COMPACT_MODE}"
   echo "StorageClass: ${STORAGE_CLASS}"
   echo "Registry: ${REGISTRY_REPO}"
   echo "Skip image prepare: ${SKIP_IMAGE_PREPARE}"
@@ -660,7 +687,7 @@ install_release() {
     --set-string "etcd.resources.limits.cpu=${ETCD_LIMIT_CPU}"
     --set-string "etcd.resources.limits.memory=${ETCD_LIMIT_MEM}"
     --set "minio.enabled=true"
-    --set-string "minio.mode=distributed"
+    --set-string "minio.mode=${MINIO_MODE}"
     --set-string "minio.replicas=${MINIO_REPLICAS}"
     --set "minio.persistence.enabled=true"
     --set-string "minio.persistence.storageClass=${STORAGE_CLASS}"

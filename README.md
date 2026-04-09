@@ -22,6 +22,14 @@ The Milvus business defaults are kept explicit in the installer help:
 - metrics: `enabled`
 - ServiceMonitor: `enabled`
 
+For single-node or heavily shared test machines, the installer now also supports a compact profile:
+
+- `--compact`
+- forces embedded `etcd/minio` to `1` replica
+- forces `proxy/querynode/datanode` to `1` replica
+- switches MinIO to `standalone`
+- keeps the regular defaults unchanged when the flag is not used
+
 ## Layout
 
 - `build.sh`: build multi-arch `.run` installers
@@ -66,6 +74,15 @@ Install with the defaults:
 
 ```bash
 ./milvus-cluster-installer-amd64.run install -y
+```
+
+Install with a compact single-node profile:
+
+```bash
+./milvus-cluster-installer-amd64.run install \
+  --compact \
+  --skip-image-prepare \
+  -y
 ```
 
 Install with Pulsar:
