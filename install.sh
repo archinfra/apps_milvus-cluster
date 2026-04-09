@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.1"
+APP_VERSION="0.1.2"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -432,11 +432,28 @@ confirm() {
 }
 
 payload_start_offset() {
-  local marker="__PAYLOAD_BELOW__"
-  local offset
-  offset="$(LC_ALL=C grep -abo -m1 "${marker}" "$0" | head -n1 | cut -d: -f1)"
-  [[ -n "${offset}" ]] || return 1
-  echo $((offset + ${#marker} + 1))
+  local marker_line payload_offset skip_bytes byte_hex
+  marker_line="$(awk '/^__PAYLOAD_BELOW__$/ { print NR; exit }' "$0")"
+  [[ -n "${marker_line}" ]] || return 1
+  payload_offset="$(( $(head -n "${marker_line}" "$0" | wc -c | tr -d ' ') + 1 ))"
+
+  skip_bytes=0
+  while :; do
+    byte_hex="$(dd if="$0" bs=1 skip="$((payload_offset + skip_bytes - 1))" count=1 2>/dev/null | od -An -tx1 | tr -d ' \n')"
+    case "${byte_hex}" in
+      0a|0d)
+        skip_bytes=$((skip_bytes + 1))
+        ;;
+      "")
+        return 1
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
+  printf '%s' "$((payload_offset + skip_bytes))"
 }
 
 extract_payload() {
@@ -446,7 +463,7 @@ extract_payload() {
   mkdir -p "${IMAGE_DIR}" "${WORKDIR}/charts"
 
   offset="$(payload_start_offset)" || die "failed to find payload marker"
-  tail -c +"$((offset + 1))" "$0" | tar -xzf - -C "${WORKDIR}" || die "failed to extract payload"
+  tail -c +"${offset}" "$0" | tar -xzf - -C "${WORKDIR}" || die "failed to extract payload"
 
   [[ -d "${CHART_DIR}" ]] || die "missing charts/milvus in payload"
   [[ -f "${IMAGE_INDEX}" ]] || die "missing image index in payload"
