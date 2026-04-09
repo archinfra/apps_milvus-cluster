@@ -8,6 +8,7 @@ This repository follows the same delivery style used in the MySQL, Redis and Min
 - metadata-driven embedded image payloads
 - explicit internal-registry image rendering during Helm install
 - GitHub Actions build and GitHub Release publishing
+- public upstream image pulls at build time, then retagged into `sealos.hub:5000/kube4/*` inside the offline package
 
 The Milvus business defaults are kept explicit in the installer help:
 
@@ -106,6 +107,17 @@ Monitoring is enabled by default in this repository:
 - `metrics.serviceMonitor.additionalLabels.monitoring.archinfra.io/stack=default`
 
 If the cluster does not contain the `ServiceMonitor` CRD, the installer warns and downgrades automatically.
+
+## Image Sources
+
+The offline payload now builds from public multi-arch upstream images for the default install path:
+
+- `milvusdb/milvus:v2.6.9`
+- `milvusdb/etcd:3.5.25-r1`
+- `minio/minio:RELEASE.2024-12-18T13-15-44Z`
+- `apachepulsar/pulsar:3.0.7`
+
+`heaptrack` is intentionally not bundled in the offline payload because the upstream public image currently exposes `amd64` only. The chart keeps `heaptrack` disabled by default.
 
 ## GitHub Actions Release Flow
 

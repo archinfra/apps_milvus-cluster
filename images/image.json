@@ -2,70 +2,56 @@
   {
     "arch": "amd64",
     "platform": "linux/amd64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/milvus:v2.6.9",
+    "pull": "milvusdb/milvus:v2.6.9",
     "tag": "sealos.hub:5000/kube4/milvus:v2.6.9",
     "tar": "milvus-amd64.tar"
   },
   {
     "arch": "amd64",
     "platform": "linux/amd64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/heaptrack:v0.1.0",
-    "tag": "sealos.hub:5000/kube4/heaptrack:v0.1.0",
-    "tar": "heaptrack-amd64.tar"
-  },
-  {
-    "arch": "amd64",
-    "platform": "linux/amd64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/etcd:3.5.25-r1",
+    "pull": "milvusdb/etcd:3.5.25-r1",
     "tag": "sealos.hub:5000/kube4/etcd:3.5.25-r1",
     "tar": "etcd-amd64.tar"
   },
   {
     "arch": "amd64",
     "platform": "linux/amd64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/minio:RELEASE.2024-12-18T13-15-44Z",
+    "pull": "minio/minio:RELEASE.2024-12-18T13-15-44Z",
     "tag": "sealos.hub:5000/kube4/minio:RELEASE.2024-12-18T13-15-44Z",
     "tar": "minio-amd64.tar"
   },
   {
     "arch": "amd64",
     "platform": "linux/amd64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/pulsar:3.0.7",
+    "pull": "apachepulsar/pulsar:3.0.7",
     "tag": "sealos.hub:5000/kube4/pulsar:3.0.7",
     "tar": "pulsar-amd64.tar"
   },
   {
     "arch": "arm64",
     "platform": "linux/arm64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/milvus:v2.6.9",
+    "pull": "milvusdb/milvus:v2.6.9",
     "tag": "sealos.hub:5000/kube4/milvus:v2.6.9",
     "tar": "milvus-arm64.tar"
   },
   {
     "arch": "arm64",
     "platform": "linux/arm64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/heaptrack:v0.1.0",
-    "tag": "sealos.hub:5000/kube4/heaptrack:v0.1.0",
-    "tar": "heaptrack-arm64.tar"
-  },
-  {
-    "arch": "arm64",
-    "platform": "linux/arm64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/etcd:3.5.25-r1",
+    "pull": "milvusdb/etcd:3.5.25-r1",
     "tag": "sealos.hub:5000/kube4/etcd:3.5.25-r1",
     "tar": "etcd-arm64.tar"
   },
   {
     "arch": "arm64",
     "platform": "linux/arm64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/minio:RELEASE.2024-12-18T13-15-44Z",
+    "pull": "minio/minio:RELEASE.2024-12-18T13-15-44Z",
     "tag": "sealos.hub:5000/kube4/minio:RELEASE.2024-12-18T13-15-44Z",
     "tar": "minio-arm64.tar"
   },
   {
     "arch": "arm64",
     "platform": "linux/arm64",
-    "pull": "registry.cn-beijing.aliyuncs.com/kube4/pulsar:3.0.7",
+    "pull": "apachepulsar/pulsar:3.0.7",
     "tag": "sealos.hub:5000/kube4/pulsar:3.0.7",
     "tar": "pulsar-arm64.tar"
   }

@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.0"
+APP_VERSION="0.1.1"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -84,7 +84,6 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 MILVUS_IMAGE_REF=""
-HEAPTRACK_IMAGE_REF=""
 ETCD_IMAGE_REF=""
 MINIO_IMAGE_REF=""
 PULSAR_IMAGE_REF=""
@@ -486,9 +485,6 @@ load_image_metadata() {
       milvus-*.tar)
         MILVUS_IMAGE_REF="${target_ref}"
         ;;
-      heaptrack-*.tar)
-        HEAPTRACK_IMAGE_REF="${target_ref}"
-        ;;
       etcd-*.tar)
         ETCD_IMAGE_REF="${target_ref}"
         ;;
@@ -502,7 +498,6 @@ load_image_metadata() {
   done < "${IMAGE_INDEX}"
 
   [[ -n "${MILVUS_IMAGE_REF}" ]] || die "failed to resolve Milvus image"
-  [[ -n "${HEAPTRACK_IMAGE_REF}" ]] || die "failed to resolve Heaptrack image"
   [[ -n "${ETCD_IMAGE_REF}" ]] || die "failed to resolve etcd image"
   [[ -n "${MINIO_IMAGE_REF}" ]] || die "failed to resolve MinIO image"
   [[ -n "${PULSAR_IMAGE_REF}" ]] || die "failed to resolve Pulsar image"
@@ -591,9 +586,6 @@ install_release() {
     --set-string "image.all.repository=$(image_repo "${MILVUS_IMAGE_REF}")"
     --set-string "image.all.tag=$(image_tag "${MILVUS_IMAGE_REF}")"
     --set-string "image.all.pullPolicy=${IMAGE_PULL_POLICY}"
-    --set-string "heaptrack.image.repository=$(image_repo "${HEAPTRACK_IMAGE_REF}")"
-    --set-string "heaptrack.image.tag=$(image_tag "${HEAPTRACK_IMAGE_REF}")"
-    --set-string "heaptrack.image.pullPolicy=${IMAGE_PULL_POLICY}"
     --set-string "etcd.image.repository=$(image_repo "${ETCD_IMAGE_REF}")"
     --set-string "etcd.image.tag=$(image_tag "${ETCD_IMAGE_REF}")"
     --set-string "etcd.image.pullPolicy=${IMAGE_PULL_POLICY}"
