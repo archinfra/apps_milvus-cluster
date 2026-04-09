@@ -72,6 +72,222 @@ Milvus 集群离线交付仓库。
 
 这套默认值更适合“有一定资源余量的标准集群”。
 
+## 默认部署拓扑
+
+如果你直接执行默认安装：
+
+```bash
+./milvus-cluster-installer-amd64.run install -y
+```
+
+默认会部署的核心工作负载是：
+
+- `proxy`
+- `querynode`
+- `datanode`
+- `mixcoord`
+- `streamingnode`
+- `etcd`
+- `minio`
+
+几个容易误解的点也提前说明：
+
+- 默认消息队列是 `woodpecker`
+- 当前 chart 里 `woodpecker` 是嵌入式模式，不会额外起独立的 `woodpecker` StatefulSet
+- 默认启用的是 `mixcoord`，不是拆分的 `rootcoord/querycoord/datacoord/indexcoord`
+- 默认没有启用独立 `indexnode`
+- 默认没有启用 `attu`
+- 默认没有依赖 MySQL、Redis、Nacos
+
+也就是说，Milvus 自己是一个相对独立的业务组件，它和其他组件之间最常见的关系不是“依赖它们启动”，而是“被业务系统调用”或者“被 Prometheus 抓监控”。
+
+## 资源需求矩阵
+
+下面这部分很重要。
+
+这里统计的是“安装器和默认 chart 显式声明的 requests/limits”，也就是调度器和平台最容易直接感知到的资源边界。
+
+需要注意：
+
+- `streamingnode` 当前没有显式 request/limit
+- 默认 `woodpecker` 是嵌入在 `streamingnode` 路径里的，不单独统计 Pod 资源
+- `--mq pulsar` 时，Pulsar 子组件大多只设置了 request，没有统一 limit，所以真实峰值可能高于表格里的“显式上限”
+
+### 默认模式资源明细
+
+默认模式指：
+
+- `mode=cluster`
+- `mq=woodpecker`
+- `streaming=true`
+- 不加 `--compact`
+
+| 组件 | 默认副本 | 单 Pod Request | 单 Pod Limit | 默认总 Request | 默认总 Limit | 说明 |
+| --- | ---: | --- | --- | --- | --- | --- |
+| `proxy` | 2 | `200m / 512Mi` | `1000m / 2Gi` | `400m / 1Gi` | `2 CPU / 4Gi` | 安装器显式下发 |
+| `querynode` | 2 | `500m / 2Gi` | `2000m / 8Gi` | `1 CPU / 4Gi` | `4 CPU / 16Gi` | 安装器显式下发 |
+| `datanode` | 2 | `500m / 2Gi` | `2000m / 8Gi` | `1 CPU / 4Gi` | `4 CPU / 16Gi` | 安装器显式下发 |
+| `mixcoord` | 1 | `200m / 512Mi` | `1000m / 2Gi` | `200m / 512Mi` | `1 CPU / 2Gi` | 安装器显式下发 |
+| `etcd` | 3 | `200m / 512Mi` | `1000m / 2Gi` | `600m / 1.5Gi` | `3 CPU / 6Gi` | 安装器显式下发 |
+| `minio` | 4 | `200m / 512Mi` | `1000m / 2Gi` | `800m / 2Gi` | `4 CPU / 8Gi` | 安装器显式下发 |
+| `streamingnode` | 1 | 未显式设置 | 未显式设置 | 未计入 | 未计入 | 默认启用 |
+
+### compact 模式资源明细
+
+`--compact` 适合单机测试环境，它会把副本数收敛到更适合测试机的规模。
+
+| 组件 | compact 副本 | 单 Pod Request | 单 Pod Limit | compact 总 Request | compact 总 Limit |
+| --- | ---: | --- | --- | --- | --- |
+| `proxy` | 1 | `200m / 512Mi` | `1000m / 2Gi` | `200m / 512Mi` | `1 CPU / 2Gi` |
+| `querynode` | 1 | `500m / 2Gi` | `2000m / 8Gi` | `500m / 2Gi` | `2 CPU / 8Gi` |
+| `datanode` | 1 | `500m / 2Gi` | `2000m / 8Gi` | `500m / 2Gi` | `2 CPU / 8Gi` |
+| `mixcoord` | 1 | `200m / 512Mi` | `1000m / 2Gi` | `200m / 512Mi` | `1 CPU / 2Gi` |
+| `etcd` | 1 | `200m / 512Mi` | `1000m / 2Gi` | `200m / 512Mi` | `1 CPU / 2Gi` |
+| `minio` | 1 | `200m / 512Mi` | `1000m / 2Gi` | `200m / 512Mi` | `1 CPU / 2Gi` |
+| `streamingnode` | 1 | 未显式设置 | 未显式设置 | 未计入 | 未计入 |
+
+### Pulsar 模式资源增量
+
+如果你把消息队列切成：
+
+```bash
+--mq pulsar
+```
+
+资源需求会明显上升，因为会带起 Pulsar 子组件。按当前默认值，Pulsar 相关显式 request 大致是：
+
+| 组件 | 默认副本 | 单 Pod Request | 默认总 Request | 说明 |
+| --- | ---: | --- | --- | --- |
+| `pulsarv3.zookeeper` | 3 | `200m / 256Mi` | `600m / 768Mi` | 只有 request，无统一 limit |
+| `pulsarv3.bookkeeper` | 3 | `500m / 2Gi` | `1.5 CPU / 6Gi` | 只有 request，无统一 limit |
+| `pulsarv3.autorecovery` | 1 | `100m / 128Mi` | `100m / 128Mi` | 只有 request，无统一 limit |
+| `pulsarv3.broker` | 3 | `500m / 2Gi` | `1.5 CPU / 6Gi` | 默认由 `--pulsar-replicas` 控制 |
+| `pulsarv3.proxy` | 2 | `500m / 1Gi` | `1 CPU / 2Gi` | chart 默认值 |
+
+### 资源总览
+
+为了方便使用者快速判断，下面给出几个常见安装档位的汇总值。
+
+| 安装档位 | 调度最小 request | 已显式声明的 limit 总和 | 默认持久化存储下限 | 适用建议 |
+| --- | --- | --- | --- | --- |
+| 默认 `cluster + woodpecker` | `4 CPU / 13Gi` | `18 CPU / 52Gi` | `460Gi` | 标准多节点环境 |
+| `--compact + woodpecker` | `1.8 CPU / 6Gi` | `8 CPU / 24Gi` | `120Gi` | 单机或共享测试机 |
+| 默认 `cluster + pulsar` | `8.7 CPU / 27.9Gi` | 仅 Milvus/etcd/minio 部分有显式 limit | `1420Gi` | 资源较充足的集群 |
+| `--compact + pulsar` | `4.1 CPU / 12.4Gi` | 仅 Milvus/etcd/minio 部分有显式 limit | `440Gi` | 勉强可测，不推荐长期使用 |
+
+几个解释：
+
+- “调度最小 request” 是调度器最容易直接感知到的最低资源门槛
+- “已显式声明的 limit 总和” 不是整个系统的绝对最大峰值，只是当前 chart/安装器里明确写出的上限
+- `streamingnode` 目前没显式 request/limit，所以真实峰值会高于上表
+- `--mq pulsar` 时，Pulsar 子组件大多没有统一 limit，因此不能把上表看成硬上限
+
+## 存储需求与容量说明
+
+存储这块也建议使用者提前看清楚。
+
+默认 `woodpecker` 模式下，主要持久化数据来自：
+
+- `etcd`: `3 x 20Gi = 60Gi`
+- `minio`: `4 x 100Gi = 400Gi`
+
+所以默认最低持久化容量大约是：
+
+- `460Gi`
+
+如果是 `--compact`，则会变成：
+
+- `etcd`: `1 x 20Gi = 20Gi`
+- `minio`: `1 x 100Gi = 100Gi`
+- 合计：`120Gi`
+
+如果切到 `--mq pulsar`，还会额外增加：
+
+- `zookeeper`: `3 x 20Gi = 60Gi`
+- `bookkeeper journal`: `3 x 100Gi = 300Gi`
+- `bookkeeper ledger`: `3 x 200Gi = 600Gi`
+
+所以默认 Pulsar 模式下，最低持久化容量大约是：
+
+- `1420Gi`
+
+这里还有一个兼容性说明：
+
+- `--storage-size` 目前保留为兼容参数和展示提示
+- 当前实际生效的持久化容量，主要由 `--etcd-storage-size`、`--minio-storage-size`、`--zookeeper-storage-size`、`--bookkeeper-journal-size`、`--bookkeeper-ledger-size` 这些组件级参数控制
+
+如果你要给别人或给 AI 一条“不会误解”的规则，应该优先使用组件级容量参数，不要只传一个总的 `--storage-size`。
+
+## 使用前置条件与依赖
+
+这个安装器要成功运行，前置条件建议明确成下面这些。
+
+### 必要条件
+
+- Kubernetes 集群可用
+- `kubectl` 可正常访问目标集群
+- `helm` 已安装
+- 集群里存在可用的 `StorageClass`
+- 默认或指定的 `storageClass` 可以正常动态供给 PVC
+
+### 镜像相关条件
+
+- 如果不带 `--skip-image-prepare`，执行机器需要有 `docker`
+- 如果带 `--skip-image-prepare`，目标镜像仓库里需要已经有安装器所需镜像
+
+### 监控相关条件
+
+- 如果集群里有 `ServiceMonitor` CRD，安装器会创建 `ServiceMonitor`
+- 如果没有，安装器会自动降级，只保留 metrics
+
+### 对其他组件的关系
+
+- Milvus 默认不依赖 MySQL
+- Milvus 默认不依赖 Redis
+- Milvus 默认不依赖 Nacos
+- Milvus 与 Prometheus Stack 的对接，是通过 `ServiceMonitor + monitoring.archinfra.io/stack=default`
+
+## 和其他组件对接时怎么理解
+
+如果你的系统里还有 MySQL、Redis、Nacos 或更多业务组件，Milvus 最常见的对接方式是下面这些。
+
+### 作为业务系统的向量库
+
+业务系统通常只需要知道 Milvus 的服务地址：
+
+- 服务名：`<release-name>.<namespace>.svc`
+- 默认端口：`19530`
+
+按默认值展开以后就是：
+
+- `milvus-cluster.milvus-system.svc:19530`
+
+如果你在别的组件里写配置，例如放到 Nacos、ConfigMap、环境变量里，通常就写这个 DNS 地址即可。
+
+### 作为 Prometheus 被监控对象
+
+Milvus 默认会暴露 metrics，并带上统一标签：
+
+- `monitoring.archinfra.io/stack=default`
+
+所以只要 Prometheus Stack 按平台规则启用了跨 namespace 发现，Milvus 通常装完就能自动接入监控。
+
+### 如果业务需要外部访问
+
+默认 Service 是：
+
+- `ClusterIP`
+
+如果业务需要集群外访问，可以透传 Helm 参数调整，例如：
+
+```bash
+./milvus-cluster-installer-amd64.run install \
+  -y \
+  -- \
+  --set service.type=NodePort \
+  --set service.nodePort=31953
+```
+
 ## 快速开始
 
 ### 1. 看帮助
@@ -380,6 +596,112 @@ kubectl get servicemonitor -n milvus-system
 ```
 
 如果 Prometheus 已接入平台发现策略，也可以再去 Prometheus targets 页面确认 Milvus 已被抓取。
+
+## 给 AI 或自动化系统使用时，建议再补齐这些信息
+
+如果这份文档未来是给大模型、自动化代理、或者运维机器人直接参考的，我建议把下面这些当成“执行规约”。
+
+这样做的目标不是把文档写得更长，而是让执行者少猜、少试错、少误判。
+
+### AI 在安装前应该先收集的环境事实
+
+建议先收集这些事实，再决定安装参数：
+
+```bash
+uname -m
+kubectl get nodes -o wide
+kubectl get sc
+kubectl get crd servicemonitors.monitoring.coreos.com
+kubectl describe node <node-name>
+helm list -A | grep milvus
+```
+
+至少要弄清楚：
+
+- 目标机器架构是 `amd64` 还是 `arm64`
+- 集群是否只有 1 个节点
+- `storageClass` 是否存在且可用
+- 集群里是否已安装 Prometheus Operator CRD
+- 目标 namespace 和 release 是否已经存在
+- 目标仓库里是否已经有镜像，可以使用 `--skip-image-prepare`
+
+### AI 选择安装档位的建议规则
+
+如果是大模型自己执行安装，建议按下面这套判断逻辑：
+
+- 单节点环境：优先 `--compact`
+- 共享测试环境：优先 `--compact`
+- 可用 request 余量明显小于 `4 CPU / 13Gi`：优先 `--compact`
+- 只想快速验证 Milvus 主链路：优先默认 `woodpecker`，不要切 `pulsar`
+- 只有在明确需要 Pulsar 语义时，再使用 `--mq pulsar`
+- 如果打算和平台监控联动，保留默认 `metrics=true`、`ServiceMonitor=true`
+- 如果镜像仓库已准备好，优先加 `--skip-image-prepare`
+
+一句话总结给 AI：
+
+- 不确定资源余量时，用 `--compact`
+- 不确定消息队列需求时，用默认 `woodpecker`
+- 不确定监控环境时，不要主动关 metrics
+
+### AI 安装 Milvus 时推荐的默认策略
+
+对一个陌生但看起来资源不算特别充足的环境，推荐从这个命令开始：
+
+```bash
+./milvus-cluster-installer-amd64.run install \
+  --compact \
+  --skip-image-prepare \
+  -y
+```
+
+如果后续验证通过，再根据资源情况逐步放大副本数。
+
+### AI 需要知道的成功标准
+
+如果是自动化执行，不能只看 `helm` 返回 0，还应该再确认：
+
+- `helm status <release> -n <namespace>` 为 `deployed`
+- `etcd` Pod Ready
+- `minio` Pod Ready
+- `proxy` Pod Ready
+- `querynode` Pod Ready
+- `datanode` Pod Ready
+- `mixcoord` Pod Ready
+- `streamingnode` Pod Ready
+- PVC 为 `Bound`
+- 如果集群支持 `ServiceMonitor`，则 `ServiceMonitor` 已创建
+
+### AI 需要识别的典型失败信号
+
+下面这些报错，AI 应该优先按固定思路处理。
+
+`Headless service domain does not have an IP per initial member in the cluster`
+
+- 优先判断：是不是 etcd/minio 副本没起全
+- 常见原因：`Insufficient cpu`、`Insufficient memory`、PVC 未绑定
+- 优先动作：改用 `--compact`，或进一步下调 request
+
+`Pending`
+
+- 优先看 `kubectl describe pod`
+- 重点检查：CPU、内存、PVC、node selector、taint/toleration
+
+`ServiceMonitor` 没创建
+
+- 先查 CRD 是否存在
+- 如果 CRD 不存在，这是预期降级，不是安装失败
+
+### AI 需要知道的跨组件契约
+
+如果后续要自动部署一个更完整的系统，Milvus 这边最关键的对接契约建议固定为：
+
+- Milvus 内部地址：`<release-name>.<namespace>.svc:19530`
+- metrics 暴露端口：`9091`
+- 平台监控标签：`monitoring.archinfra.io/stack=default`
+- 默认不依赖 MySQL、Redis、Nacos
+- 如果别的业务系统需要调用 Milvus，把上面的 DNS 地址写进它们的配置即可
+
+这几条固定下来以后，大模型在自动拼装一个系统时，就不会把 Milvus 错误地当成“必须先装 MySQL 才能运行”的组件。
 
 ## 常见问题与排障
 
