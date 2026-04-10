@@ -386,6 +386,9 @@ Milvus 默认会暴露 metrics，并带上统一标签：
 
 - `metrics.enabled=true`
 - `metrics.serviceMonitor.enabled=true`
+- `etcd.metrics.enabled=true`
+- `etcd.metrics.podMonitor.enabled=true`
+- `minio.metrics.serviceMonitor.enabled=true`
 
 并且默认会带平台统一标签：
 
@@ -393,10 +396,16 @@ Milvus 默认会暴露 metrics，并带上统一标签：
 
 如果你的 Prometheus Stack 已经按平台约定配置了跨 namespace 自动发现，那么 Milvus 装完后通常就会自动被发现。
 
-如果集群中没有 `ServiceMonitor` CRD，安装器不会直接失败，而是会提示后自动降级：
+默认情况下会覆盖到这些监控对象：
+
+- Milvus 主服务 `ServiceMonitor`
+- 内嵌 `etcd` 的 `PodMonitor`
+- 内嵌 `minio` 的 `ServiceMonitor`
+
+如果集群中没有 `ServiceMonitor` 或 `PodMonitor` CRD，安装器不会直接失败，而是会提示后自动降级：
 
 - 保留 metrics
-- 关闭 `ServiceMonitor`
+- 关闭缺失 CRD 对应的监控资源
 
 如果你明确不想开监控，也可以手动关闭：
 

@@ -705,6 +705,14 @@ minio:
     successThreshold: 1
     failureThreshold: 60
 
+  metrics:
+    serviceMonitor:
+      enabled: true
+      interval: "30s"
+      scrapeTimeout: "10s"
+      additionalLabels:
+        monitoring.archinfra.io/stack: default
+
 ## Configuration values for the etcd dependency
 ## ref: https://artifacthub.io/packages/helm/bitnami/etcd
 ##
@@ -763,6 +771,15 @@ etcd:
     value: "500"
   - name: ETCD_ELECTION_TIMEOUT
     value: "2500"
+
+  metrics:
+    enabled: true
+    podMonitor:
+      enabled: true
+      interval: "30s"
+      scrapeTimeout: "10s"
+      additionalLabels:
+        monitoring.archinfra.io/stack: default
 
 ## Configuration values for the pulsar dependency
 ## ref: https://github.com/apache/pulsar-helm-chart

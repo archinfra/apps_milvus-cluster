@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.3"
+APP_VERSION="0.1.4"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -31,6 +31,8 @@ SERVICE_MONITOR_INTERVAL="30s"
 SERVICE_MONITOR_SCRAPE_TIMEOUT="10s"
 AUTO_YES="false"
 COMPACT_MODE="false"
+APPLY_SERVICE_MONITOR="true"
+APPLY_POD_MONITOR="true"
 HELM_ARGS=()
 MINIO_MODE="distributed"
 
@@ -413,6 +415,9 @@ normalize_flags() {
     ENABLE_METRICS="true"
   fi
 
+  APPLY_SERVICE_MONITOR="${ENABLE_SERVICEMONITOR}"
+  APPLY_POD_MONITOR="${ENABLE_SERVICEMONITOR}"
+
   if [[ "${COMPACT_MODE}" == "true" ]]; then
     MILVUS_PROXY_REPLICAS="1"
     MILVUS_QUERYNODE_REPLICAS="1"
@@ -552,12 +557,19 @@ load_image_metadata() {
 
 check_service_monitor_support() {
   if [[ "${ENABLE_SERVICEMONITOR}" != "true" ]]; then
+    APPLY_SERVICE_MONITOR="false"
+    APPLY_POD_MONITOR="false"
     return 0
   fi
 
   if ! kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1; then
     warn "ServiceMonitor CRD not found, disabling ServiceMonitor"
-    ENABLE_SERVICEMONITOR="false"
+    APPLY_SERVICE_MONITOR="false"
+  fi
+
+  if ! kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1; then
+    warn "PodMonitor CRD not found, disabling PodMonitor"
+    APPLY_POD_MONITOR="false"
   fi
 }
 
@@ -652,10 +664,15 @@ install_release() {
     --set-string "pulsarv3.images.proxy.tag=$(image_tag "${PULSAR_IMAGE_REF}")"
     --set-string "pulsarv3.images.proxy.pullPolicy=${IMAGE_PULL_POLICY}"
     --set "metrics.enabled=${ENABLE_METRICS}"
-    --set "metrics.serviceMonitor.enabled=${ENABLE_SERVICEMONITOR}"
+    --set "metrics.serviceMonitor.enabled=${APPLY_SERVICE_MONITOR}"
     --set-string "metrics.serviceMonitor.interval=${SERVICE_MONITOR_INTERVAL}"
     --set-string "metrics.serviceMonitor.scrapeTimeout=${SERVICE_MONITOR_SCRAPE_TIMEOUT}"
     --set-string "metrics.serviceMonitor.additionalLabels.monitoring\\.archinfra\\.io/stack=default"
+    --set "etcd.metrics.enabled=${ENABLE_METRICS}"
+    --set "etcd.metrics.podMonitor.enabled=${APPLY_POD_MONITOR}"
+    --set-string "etcd.metrics.podMonitor.interval=${SERVICE_MONITOR_INTERVAL}"
+    --set-string "etcd.metrics.podMonitor.scrapeTimeout=${SERVICE_MONITOR_SCRAPE_TIMEOUT}"
+    --set-string "etcd.metrics.podMonitor.additionalLabels.monitoring\\.archinfra\\.io/stack=default"
     --set-string "proxy.replicas=${MILVUS_PROXY_REPLICAS}"
     --set-string "proxy.resources.requests.cpu=${MILVUS_PROXY_REQUEST_CPU}"
     --set-string "proxy.resources.requests.memory=${MILVUS_PROXY_REQUEST_MEM}"
@@ -689,6 +706,10 @@ install_release() {
     --set "minio.enabled=true"
     --set-string "minio.mode=${MINIO_MODE}"
     --set-string "minio.replicas=${MINIO_REPLICAS}"
+    --set "minio.metrics.serviceMonitor.enabled=${APPLY_SERVICE_MONITOR}"
+    --set-string "minio.metrics.serviceMonitor.interval=${SERVICE_MONITOR_INTERVAL}"
+    --set-string "minio.metrics.serviceMonitor.scrapeTimeout=${SERVICE_MONITOR_SCRAPE_TIMEOUT}"
+    --set-string "minio.metrics.serviceMonitor.additionalLabels.monitoring\\.archinfra\\.io/stack=default"
     --set "minio.persistence.enabled=true"
     --set-string "minio.persistence.storageClass=${STORAGE_CLASS}"
     --set-string "minio.persistence.size=${MINIO_STORAGE_SIZE}"
@@ -730,9 +751,14 @@ show_post_install_info() {
   section "Milvus Status"
   kubectl get pods,svc,pvc -n "${NAMESPACE}" -l "app.kubernetes.io/instance=${RELEASE_NAME}" || true
 
-  if [[ "${ENABLE_SERVICEMONITOR}" == "true" ]] && kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1; then
+  if kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1; then
     echo
-    kubectl get servicemonitor -n "${NAMESPACE}" -l "app.kubernetes.io/instance=${RELEASE_NAME}" || true
+    kubectl get servicemonitor -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
+  fi
+
+  if kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1; then
+    echo
+    kubectl get podmonitor -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
   fi
 }
 
@@ -754,7 +780,12 @@ show_status() {
 
   if kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1; then
     echo
-    kubectl get servicemonitor -n "${NAMESPACE}" -l "app.kubernetes.io/instance=${RELEASE_NAME}" || true
+    kubectl get servicemonitor -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
+  fi
+
+  if kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1; then
+    echo
+    kubectl get podmonitor -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
   fi
 }
 
