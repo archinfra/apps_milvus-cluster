@@ -1,0 +1,90 @@
+{{- if and .Values.metrics.enabled .Values.metrics.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: milvus
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- if .Values.metrics.dashboards.labels }}
+{{ toYaml .Values.metrics.dashboards.labels | indent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.metrics.dashboards.annotations }}
+{{ toYaml .Values.metrics.dashboards.annotations | indent 4 }}
+    {{- end }}
+data:
+  milvus-overview.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+          "targets": [
+            { "expr": "count(up{namespace=\"{{ .Release.Namespace }}\", pod=~\"{{ .Release.Name }}-.*\"} > 0)", "refId": "A" }
+          ],
+          "title": "Healthy Targets",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+          "targets": [
+            { "expr": "sum(process_resident_memory_bytes{namespace=\"{{ .Release.Namespace }}\", pod=~\"{{ .Release.Name }}-.*\"})", "refId": "A" }
+          ],
+          "title": "Resident Memory",
+          "type": "stat",
+          "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+          "targets": [
+            { "expr": "sum(go_goroutines{namespace=\"{{ .Release.Namespace }}\", pod=~\"{{ .Release.Name }}-.*\"})", "refId": "A" }
+          ],
+          "title": "Go Goroutines",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+          "targets": [
+            { "expr": "sum(rate(process_cpu_seconds_total{namespace=\"{{ .Release.Namespace }}\", pod=~\"{{ .Release.Name }}-.*\"}[5m]))", "refId": "A" }
+          ],
+          "title": "CPU Cores Used",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+          "targets": [
+            { "expr": "sum(process_resident_memory_bytes{namespace=\"{{ .Release.Namespace }}\", pod=~\"{{ .Release.Name }}-.*\"}) by (pod)", "legendFormat": "{{`{{pod}}`}}", "refId": "A" }
+          ],
+          "title": "Memory By Pod",
+          "type": "timeseries",
+          "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+          "targets": [
+            { "expr": "sum(rate(process_cpu_seconds_total{namespace=\"{{ .Release.Namespace }}\", pod=~\"{{ .Release.Name }}-.*\"}[5m])) by (pod)", "legendFormat": "{{`{{pod}}`}}", "refId": "A" }
+          ],
+          "title": "CPU By Pod",
+          "type": "timeseries"
+        }
+      ],
+      "schemaVersion": 39,
+      "style": "dark",
+      "tags": ["archinfra", "milvus"],
+      "templating": { "list": [] },
+      "time": { "from": "now-6h", "to": "now" },
+      "title": "Milvus Overview",
+      "version": 1
+    }
+{{- end }}

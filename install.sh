@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.5"
+APP_VERSION="0.1.6"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -27,6 +27,7 @@ REGISTRY_PASSWORD=""
 SKIP_IMAGE_PREPARE="false"
 ENABLE_METRICS="true"
 ENABLE_SERVICEMONITOR="true"
+ENABLE_PROMETHEUSRULE="true"
 SERVICE_MONITOR_INTERVAL="30s"
 SERVICE_MONITOR_SCRAPE_TIMEOUT="10s"
 AUTO_YES="false"
@@ -34,6 +35,7 @@ COMPACT_MODE="false"
 RESOURCE_PROFILE="mid"
 APPLY_SERVICE_MONITOR="true"
 APPLY_POD_MONITOR="true"
+APPLY_PROMETHEUS_RULE="true"
 HELM_ARGS=()
 MINIO_MODE="distributed"
 
@@ -157,6 +159,8 @@ Monitoring:
   --disable-metrics                    Disable metrics
   --enable-servicemonitor              Enable ServiceMonitor, default: ${ENABLE_SERVICEMONITOR}
   --disable-servicemonitor             Disable ServiceMonitor
+  --enable-prometheusrule              Enable PrometheusRule, default: ${ENABLE_PROMETHEUSRULE}
+  --disable-prometheusrule             Disable PrometheusRule
   --service-monitor-interval <value>   Default: ${SERVICE_MONITOR_INTERVAL}
   --service-monitor-scrape-timeout <v> Default: ${SERVICE_MONITOR_SCRAPE_TIMEOUT}
 
@@ -297,6 +301,14 @@ parse_args() {
         ;;
       --disable-servicemonitor)
         ENABLE_SERVICEMONITOR="false"
+        shift
+        ;;
+      --enable-prometheusrule)
+        ENABLE_PROMETHEUSRULE="true"
+        shift
+        ;;
+      --disable-prometheusrule)
+        ENABLE_PROMETHEUSRULE="false"
         shift
         ;;
       --service-monitor-interval)
@@ -646,6 +658,13 @@ check_service_monitor_support() {
   if [[ "${ENABLE_SERVICEMONITOR}" != "true" ]]; then
     APPLY_SERVICE_MONITOR="false"
     APPLY_POD_MONITOR="false"
+  fi
+
+  if [[ "${ENABLE_PROMETHEUSRULE}" != "true" ]]; then
+    APPLY_PROMETHEUSRULE="false"
+  fi
+
+  if [[ "${ENABLE_SERVICEMONITOR}" != "true" ]]; then
     return 0
   fi
 
@@ -657,6 +676,11 @@ check_service_monitor_support() {
   if ! kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1; then
     warn "PodMonitor CRD not found, disabling PodMonitor"
     APPLY_POD_MONITOR="false"
+  fi
+
+  if ! kubectl get crd prometheusrules.monitoring.coreos.com >/dev/null 2>&1; then
+    warn "PrometheusRule CRD not found, disabling PrometheusRule"
+    APPLY_PROMETHEUSRULE="false"
   fi
 }
 
@@ -752,9 +776,11 @@ install_release() {
     --set-string "pulsarv3.images.proxy.pullPolicy=${IMAGE_PULL_POLICY}"
     --set "metrics.enabled=${ENABLE_METRICS}"
     --set "metrics.serviceMonitor.enabled=${APPLY_SERVICE_MONITOR}"
+    --set "metrics.prometheusRule.enabled=${APPLY_PROMETHEUSRULE}"
     --set-string "metrics.serviceMonitor.interval=${SERVICE_MONITOR_INTERVAL}"
     --set-string "metrics.serviceMonitor.scrapeTimeout=${SERVICE_MONITOR_SCRAPE_TIMEOUT}"
     --set-string "metrics.serviceMonitor.additionalLabels.monitoring\\.archinfra\\.io/stack=default"
+    --set-string "metrics.prometheusRule.additionalLabels.monitoring\\.archinfra\\.io/stack=default"
     --set "etcd.metrics.enabled=${ENABLE_METRICS}"
     --set "etcd.metrics.podMonitor.enabled=${APPLY_POD_MONITOR}"
     --set-string "etcd.metrics.podMonitor.interval=${SERVICE_MONITOR_INTERVAL}"
@@ -843,6 +869,11 @@ show_post_install_info() {
     kubectl get servicemonitor -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
   fi
 
+  if kubectl get crd prometheusrules.monitoring.coreos.com >/dev/null 2>&1; then
+    echo
+    kubectl get prometheusrule -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
+  fi
+
   if kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1; then
     echo
     kubectl get podmonitor -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
@@ -868,6 +899,11 @@ show_status() {
   if kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1; then
     echo
     kubectl get servicemonitor -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
+  fi
+
+  if kubectl get crd prometheusrules.monitoring.coreos.com >/dev/null 2>&1; then
+    echo
+    kubectl get prometheusrule -n "${NAMESPACE}" 2>/dev/null | awk 'NR==1 || $1 ~ /^'"${RELEASE_NAME}"'(-|$)/' || true
   fi
 
   if kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1; then

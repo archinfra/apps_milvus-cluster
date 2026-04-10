@@ -1,0 +1,34 @@
+{{- if and .Values.metrics.enabled .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-alerts
+  labels:
+    app.kubernetes.io/name: milvus
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- if .Values.metrics.prometheusRule.additionalLabels }}
+{{ toYaml .Values.metrics.prometheusRule.additionalLabels | indent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ .Release.Name }}
+      rules:
+        - alert: MilvusTargetsDown
+          expr: sum(up{namespace="{{ .Release.Namespace }}", pod=~"{{ .Release.Name }}-.*"}) < 1
+          for: 5m
+          labels:
+            severity: critical
+            category: availability
+          annotations:
+            summary: Milvus scrape targets are down
+            description: No healthy Milvus scrape target has been available in namespace {{ .Release.Namespace }} for 5 minutes.
+        - alert: MilvusMemoryHigh
+          expr: sum(process_resident_memory_bytes{namespace="{{ .Release.Namespace }}", pod=~"{{ .Release.Name }}-.*"}) > 21474836480
+          for: 15m
+          labels:
+            severity: warning
+            category: capacity
+          annotations:
+            summary: Milvus resident memory is high
+            description: Total Milvus resident memory in namespace {{ .Release.Namespace }} has exceeded 20 GiB for 15 minutes.
+{{- end }}

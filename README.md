@@ -855,3 +855,33 @@ kubectl get servicemonitor -n milvus-system
 - 构建安装包
 - 发布 GitHub Release
 - 挂载 `.run` 和 `.sha256`
+## Built-in Monitoring, Alerts, And Dashboards
+
+Default install now enables:
+
+- `metrics.enabled=true`
+- `ServiceMonitor`
+- `PrometheusRule`
+- Grafana dashboard `ConfigMap`
+
+Grafana auto-import contract:
+
+- dashboard label: `grafana_dashboard=1`
+- platform label: `monitoring.archinfra.io/stack=default`
+- folder annotation: `grafana_folder=Middleware/Milvus`
+
+Built-in alerts:
+
+- `MilvusTargetsDown`
+- `MilvusMemoryHigh`
+
+Built-in dashboard panels:
+
+- Healthy Targets
+- Resident Memory
+- Go Goroutines
+- CPU Cores Used
+- Memory By Pod
+- CPU By Pod
+
+Current Milvus dashboard first focuses on operational health and process-level capacity signals so it stays compatible across cluster, compact, and standalone deployments.

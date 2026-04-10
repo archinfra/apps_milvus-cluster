@@ -171,6 +171,17 @@ metrics:
     # Additional labels that can be used so ServiceMonitor will be discovered by Prometheus
     additionalLabels:
       monitoring.archinfra.io/stack: default
+  prometheusRule:
+    enabled: true
+    additionalLabels:
+      monitoring.archinfra.io/stack: default
+  dashboards:
+    enabled: true
+    labels:
+      grafana_dashboard: "1"
+      monitoring.archinfra.io/stack: default
+    annotations:
+      grafana_folder: Middleware/Milvus
 
 livenessProbe:
   enabled: true
