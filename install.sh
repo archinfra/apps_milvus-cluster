@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.4"
+APP_VERSION="0.1.5"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -31,6 +31,7 @@ SERVICE_MONITOR_INTERVAL="30s"
 SERVICE_MONITOR_SCRAPE_TIMEOUT="10s"
 AUTO_YES="false"
 COMPACT_MODE="false"
+RESOURCE_PROFILE="mid"
 APPLY_SERVICE_MONITOR="true"
 APPLY_POD_MONITOR="true"
 HELM_ARGS=()
@@ -141,6 +142,7 @@ Core options:
   --streaming <bool>                   true|false, default: ${STREAMING_ENABLED}
   --storage-class <name>               StorageClass, default: ${STORAGE_CLASS}
   --storage-size <size>                Shared storage size hint, default: ${STORAGE_SIZE}
+  --resource-profile <name>            Resource profile: low|mid|midd|high, default: ${RESOURCE_PROFILE}
   --wait-timeout <duration>            Helm wait timeout, default: ${WAIT_TIMEOUT}
   --image-pull-policy <policy>         Always|IfNotPresent|Never, default: ${IMAGE_PULL_POLICY}
   --registry <repo-prefix>             Target image repo prefix, default: ${REGISTRY_REPO}
@@ -190,6 +192,7 @@ Environment-based resource tuning examples:
 
 Examples:
   ${cmd} install -y
+  ${cmd} install --resource-profile high -y
   ${cmd} install --compact --skip-image-prepare -y
   ${cmd} install --mode standalone --mq woodpecker -y
   ${cmd} install --mq pulsar --pulsar-replicas 5 --zookeeper-replicas 5 -y
@@ -243,6 +246,10 @@ parse_args() {
         ;;
       --storage-size)
         STORAGE_SIZE="$2"
+        shift 2
+        ;;
+      --resource-profile)
+        RESOURCE_PROFILE="$2"
         shift 2
         ;;
       --wait-timeout)
@@ -415,6 +422,85 @@ normalize_flags() {
     ENABLE_METRICS="true"
   fi
 
+  case "${RESOURCE_PROFILE,,}" in
+    low)
+      RESOURCE_PROFILE="low"
+      ;;
+    mid|midd|middle|medium)
+      RESOURCE_PROFILE="mid"
+      ;;
+    high)
+      RESOURCE_PROFILE="high"
+      ;;
+    *)
+      die "Unsupported resource profile: ${RESOURCE_PROFILE}"
+      ;;
+  esac
+
+  apply_resource_if_default() {
+    local name="$1"
+    local expected="$2"
+    local value="$3"
+    if [[ "${!name}" == "${expected}" ]]; then
+      printf -v "${name}" '%s' "${value}"
+    fi
+  }
+
+  case "${RESOURCE_PROFILE}" in
+    low)
+      apply_resource_if_default MILVUS_PROXY_REQUEST_CPU 200m 100m
+      apply_resource_if_default MILVUS_PROXY_REQUEST_MEM 512Mi 256Mi
+      apply_resource_if_default MILVUS_PROXY_LIMIT_CPU 1000m 500m
+      apply_resource_if_default MILVUS_PROXY_LIMIT_MEM 2Gi 1Gi
+      apply_resource_if_default MILVUS_QUERYNODE_REQUEST_CPU 500m 250m
+      apply_resource_if_default MILVUS_QUERYNODE_REQUEST_MEM 2Gi 1Gi
+      apply_resource_if_default MILVUS_QUERYNODE_LIMIT_CPU 2000m 1000m
+      apply_resource_if_default MILVUS_QUERYNODE_LIMIT_MEM 8Gi 4Gi
+      apply_resource_if_default MILVUS_DATANODE_REQUEST_CPU 500m 250m
+      apply_resource_if_default MILVUS_DATANODE_REQUEST_MEM 2Gi 1Gi
+      apply_resource_if_default MILVUS_DATANODE_LIMIT_CPU 2000m 1000m
+      apply_resource_if_default MILVUS_DATANODE_LIMIT_MEM 8Gi 4Gi
+      apply_resource_if_default MIX_COORDINATOR_REQUEST_CPU 200m 100m
+      apply_resource_if_default MIX_COORDINATOR_REQUEST_MEM 512Mi 256Mi
+      apply_resource_if_default MIX_COORDINATOR_LIMIT_CPU 1000m 500m
+      apply_resource_if_default MIX_COORDINATOR_LIMIT_MEM 2Gi 1Gi
+      apply_resource_if_default ETCD_REQUEST_CPU 200m 100m
+      apply_resource_if_default ETCD_REQUEST_MEM 512Mi 256Mi
+      apply_resource_if_default ETCD_LIMIT_CPU 1000m 500m
+      apply_resource_if_default ETCD_LIMIT_MEM 2Gi 1Gi
+      apply_resource_if_default MINIO_REQUEST_CPU 200m 100m
+      apply_resource_if_default MINIO_REQUEST_MEM 512Mi 256Mi
+      apply_resource_if_default MINIO_LIMIT_CPU 1000m 500m
+      apply_resource_if_default MINIO_LIMIT_MEM 2Gi 1Gi
+      ;;
+    high)
+      apply_resource_if_default MILVUS_PROXY_REQUEST_CPU 200m 500m
+      apply_resource_if_default MILVUS_PROXY_REQUEST_MEM 512Mi 1Gi
+      apply_resource_if_default MILVUS_PROXY_LIMIT_CPU 1000m 2
+      apply_resource_if_default MILVUS_PROXY_LIMIT_MEM 2Gi 4Gi
+      apply_resource_if_default MILVUS_QUERYNODE_REQUEST_CPU 500m 1
+      apply_resource_if_default MILVUS_QUERYNODE_REQUEST_MEM 2Gi 4Gi
+      apply_resource_if_default MILVUS_QUERYNODE_LIMIT_CPU 2000m 4
+      apply_resource_if_default MILVUS_QUERYNODE_LIMIT_MEM 8Gi 12Gi
+      apply_resource_if_default MILVUS_DATANODE_REQUEST_CPU 500m 1
+      apply_resource_if_default MILVUS_DATANODE_REQUEST_MEM 2Gi 4Gi
+      apply_resource_if_default MILVUS_DATANODE_LIMIT_CPU 2000m 4
+      apply_resource_if_default MILVUS_DATANODE_LIMIT_MEM 8Gi 12Gi
+      apply_resource_if_default MIX_COORDINATOR_REQUEST_CPU 200m 500m
+      apply_resource_if_default MIX_COORDINATOR_REQUEST_MEM 512Mi 1Gi
+      apply_resource_if_default MIX_COORDINATOR_LIMIT_CPU 1000m 2
+      apply_resource_if_default MIX_COORDINATOR_LIMIT_MEM 2Gi 4Gi
+      apply_resource_if_default ETCD_REQUEST_CPU 200m 500m
+      apply_resource_if_default ETCD_REQUEST_MEM 512Mi 1Gi
+      apply_resource_if_default ETCD_LIMIT_CPU 1000m 2
+      apply_resource_if_default ETCD_LIMIT_MEM 2Gi 4Gi
+      apply_resource_if_default MINIO_REQUEST_CPU 200m 500m
+      apply_resource_if_default MINIO_REQUEST_MEM 512Mi 1Gi
+      apply_resource_if_default MINIO_LIMIT_CPU 1000m 2
+      apply_resource_if_default MINIO_LIMIT_MEM 2Gi 4Gi
+      ;;
+  esac
+
   APPLY_SERVICE_MONITOR="${ENABLE_SERVICEMONITOR}"
   APPLY_POD_MONITOR="${ENABLE_SERVICEMONITOR}"
 
@@ -452,6 +538,7 @@ confirm() {
   echo "Mode: ${MODE}"
   echo "Message queue: ${MESSAGE_QUEUE}"
   echo "Streaming: ${STREAMING_ENABLED}"
+  echo "Resource profile: ${RESOURCE_PROFILE}"
   echo "Metrics: ${ENABLE_METRICS}"
   echo "ServiceMonitor: ${ENABLE_SERVICEMONITOR}"
   echo "Compact mode: ${COMPACT_MODE}"

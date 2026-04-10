@@ -58,6 +58,34 @@ Milvus 集群离线交付仓库。
 - registry repo: `sealos.hub:5000/kube4`
 - image pull policy: `IfNotPresent`
 - wait timeout: `15m`
+- resource profile: `mid`
+
+## Resource profile
+
+Installer now supports:
+
+- `--resource-profile low`
+- `--resource-profile mid`
+- `--resource-profile midd`
+- `--resource-profile high`
+
+Default is `mid`. `midd` is accepted as an alias of `mid`.
+
+Profile intent:
+
+- `low`: demo, smoke test, or resource-tight shared environment
+- `mid`: normal shared environment, baseline for `500-1000` concurrency and around `10000` users
+- `high`: higher query/write pressure or larger vector working set
+
+Per-pod baseline for the components that the installer explicitly sizes:
+
+| Profile | `proxy` | `querynode` | `datanode` | `mixcoord` | `etcd` | `minio` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `low` | `100m / 256Mi` request, `500m / 1Gi` limit | `250m / 1Gi` request, `1 / 4Gi` limit | `250m / 1Gi` request, `1 / 4Gi` limit | `100m / 256Mi` request, `500m / 1Gi` limit | `100m / 256Mi` request, `500m / 1Gi` limit | `100m / 256Mi` request, `500m / 1Gi` limit |
+| `mid` | `200m / 512Mi` request, `1 / 2Gi` limit | `500m / 2Gi` request, `2 / 8Gi` limit | `500m / 2Gi` request, `2 / 8Gi` limit | `200m / 512Mi` request, `1 / 2Gi` limit | `200m / 512Mi` request, `1 / 2Gi` limit | `200m / 512Mi` request, `1 / 2Gi` limit |
+| `high` | `500m / 1Gi` request, `2 / 4Gi` limit | `1 / 4Gi` request, `4 / 12Gi` limit | `1 / 4Gi` request, `4 / 12Gi` limit | `500m / 1Gi` request, `2 / 4Gi` limit | `500m / 1Gi` request, `2 / 4Gi` limit | `500m / 1Gi` request, `2 / 4Gi` limit |
+
+`--compact` continues to control replica counts. `--resource-profile` only changes per-pod requests and limits, so the two flags can be combined safely.
 
 资源默认值也已经内置进安装器，例如：
 
