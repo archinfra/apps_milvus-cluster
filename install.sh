@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.7"
+APP_VERSION="0.1.8"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -93,6 +93,8 @@ NC='\033[0m'
 MILVUS_IMAGE_REF=""
 ETCD_IMAGE_REF=""
 MINIO_IMAGE_REF=""
+MINIO_CLIENT_IMAGE_REF=""
+KUBECTL_IMAGE_REF=""
 PULSAR_IMAGE_REF=""
 
 log() {
@@ -637,6 +639,12 @@ load_image_metadata() {
     local target_ref
     target_ref="$(target_ref_from_default "${default_target_ref}")"
     case "${tar_name}" in
+      minio-client-*.tar)
+        MINIO_CLIENT_IMAGE_REF="${target_ref}"
+        ;;
+      kubectl-*.tar)
+        KUBECTL_IMAGE_REF="${target_ref}"
+        ;;
       milvus-*.tar)
         MILVUS_IMAGE_REF="${target_ref}"
         ;;
@@ -655,6 +663,8 @@ load_image_metadata() {
   [[ -n "${MILVUS_IMAGE_REF}" ]] || die "failed to resolve Milvus image"
   [[ -n "${ETCD_IMAGE_REF}" ]] || die "failed to resolve etcd image"
   [[ -n "${MINIO_IMAGE_REF}" ]] || die "failed to resolve MinIO image"
+  [[ -n "${MINIO_CLIENT_IMAGE_REF}" ]] || die "failed to resolve MinIO client image"
+  [[ -n "${KUBECTL_IMAGE_REF}" ]] || die "failed to resolve kubectl image"
   [[ -n "${PULSAR_IMAGE_REF}" ]] || die "failed to resolve Pulsar image"
 
   registry_host="$(target_registry_host "${MILVUS_IMAGE_REF}")"
@@ -766,6 +776,12 @@ install_release() {
     --set-string "minio.image.repository=$(image_repo "${MINIO_IMAGE_REF}")"
     --set-string "minio.image.tag=$(image_tag "${MINIO_IMAGE_REF}")"
     --set-string "minio.image.pullPolicy=${IMAGE_PULL_POLICY}"
+    --set-string "minio.mcImage.repository=$(image_repo "${MINIO_CLIENT_IMAGE_REF}")"
+    --set-string "minio.mcImage.tag=$(image_tag "${MINIO_CLIENT_IMAGE_REF}")"
+    --set-string "minio.mcImage.pullPolicy=${IMAGE_PULL_POLICY}"
+    --set-string "minio.kubectlImage.repository=$(image_repo "${KUBECTL_IMAGE_REF}")"
+    --set-string "minio.kubectlImage.tag=$(image_tag "${KUBECTL_IMAGE_REF}")"
+    --set-string "minio.kubectlImage.pullPolicy=${IMAGE_PULL_POLICY}"
     --set-string "pulsarv3.images.zookeeper.repository=$(image_repo "${PULSAR_IMAGE_REF}")"
     --set-string "pulsarv3.images.zookeeper.tag=$(image_tag "${PULSAR_IMAGE_REF}")"
     --set-string "pulsarv3.images.zookeeper.pullPolicy=${IMAGE_PULL_POLICY}"

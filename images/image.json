@@ -23,6 +23,20 @@
   {
     "arch": "amd64",
     "platform": "linux/amd64",
+    "pull": "registry.cn-beijing.aliyuncs.com/kube4/minio-client:2025.7.21-debian-12-r2",
+    "tag": "sealos.hub:5000/kube4/minio-client:2025.7.21-debian-12-r2",
+    "tar": "minio-client-amd64.tar"
+  },
+  {
+    "arch": "amd64",
+    "platform": "linux/amd64",
+    "pull": "docker.io/bitnamilegacy/kubectl:1.33.4-debian-12-r0",
+    "tag": "sealos.hub:5000/kube4/kubectl:1.33.4-debian-12-r0",
+    "tar": "kubectl-amd64.tar"
+  },
+  {
+    "arch": "amd64",
+    "platform": "linux/amd64",
     "pull": "apachepulsar/pulsar:3.0.7",
     "tag": "sealos.hub:5000/kube4/pulsar:3.0.7",
     "tar": "pulsar-amd64.tar"
@@ -47,6 +61,20 @@
     "pull": "minio/minio:RELEASE.2024-12-18T13-15-44Z",
     "tag": "sealos.hub:5000/kube4/minio:RELEASE.2024-12-18T13-15-44Z",
     "tar": "minio-arm64.tar"
+  },
+  {
+    "arch": "arm64",
+    "platform": "linux/arm64",
+    "pull": "registry.cn-beijing.aliyuncs.com/kube4/minio-client:2025.7.21-debian-12-r2",
+    "tag": "sealos.hub:5000/kube4/minio-client:2025.7.21-debian-12-r2",
+    "tar": "minio-client-arm64.tar"
+  },
+  {
+    "arch": "arm64",
+    "platform": "linux/arm64",
+    "pull": "docker.io/bitnamilegacy/kubectl:1.33.4-debian-12-r0",
+    "tag": "sealos.hub:5000/kube4/kubectl:1.33.4-debian-12-r0",
+    "tar": "kubectl-arm64.tar"
   },
   {
     "arch": "arm64",
