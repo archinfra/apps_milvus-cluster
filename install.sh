@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.8"
+APP_VERSION="0.1.9"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -776,6 +776,7 @@ install_release() {
     --set-string "minio.image.repository=$(image_repo "${MINIO_IMAGE_REF}")"
     --set-string "minio.image.tag=$(image_tag "${MINIO_IMAGE_REF}")"
     --set-string "minio.image.pullPolicy=${IMAGE_PULL_POLICY}"
+    --set-string "minio.configPathmc=/tmp/.mc/"
     --set-string "minio.mcImage.repository=$(image_repo "${MINIO_CLIENT_IMAGE_REF}")"
     --set-string "minio.mcImage.tag=$(image_tag "${MINIO_CLIENT_IMAGE_REF}")"
     --set-string "minio.mcImage.pullPolicy=${IMAGE_PULL_POLICY}"

@@ -78,7 +78,7 @@ priorityClassName: ""
 accessKey: ""
 secretKey: ""
 certsPath: "/etc/minio/certs/"
-configPathmc: "/etc/minio/mc/"
+configPathmc: "/tmp/.mc/"
 mountPath: "/export"
 
 ## Use existing Secret that store following variables:
