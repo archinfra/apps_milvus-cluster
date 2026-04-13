@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 APP_NAME="milvus-cluster"
-APP_VERSION="0.1.6"
+APP_VERSION="0.1.7"
 PACKAGE_PROFILE="integrated"
 WORKDIR="/tmp/${APP_NAME}-installer"
 CHART_DIR="${WORKDIR}/charts/milvus"
@@ -35,7 +35,7 @@ COMPACT_MODE="false"
 RESOURCE_PROFILE="mid"
 APPLY_SERVICE_MONITOR="true"
 APPLY_POD_MONITOR="true"
-APPLY_PROMETHEUS_RULE="true"
+APPLY_PROMETHEUSRULE="true"
 HELM_ARGS=()
 MINIO_MODE="distributed"
 
@@ -292,6 +292,7 @@ parse_args() {
       --disable-metrics)
         ENABLE_METRICS="false"
         ENABLE_SERVICEMONITOR="false"
+        ENABLE_PROMETHEUSRULE="false"
         shift
         ;;
       --enable-servicemonitor)
@@ -434,6 +435,11 @@ normalize_flags() {
     ENABLE_METRICS="true"
   fi
 
+  if [[ "${ENABLE_METRICS}" != "true" ]]; then
+    ENABLE_SERVICEMONITOR="false"
+    ENABLE_PROMETHEUSRULE="false"
+  fi
+
   case "${RESOURCE_PROFILE,,}" in
     low)
       RESOURCE_PROFILE="low"
@@ -515,6 +521,7 @@ normalize_flags() {
 
   APPLY_SERVICE_MONITOR="${ENABLE_SERVICEMONITOR}"
   APPLY_POD_MONITOR="${ENABLE_SERVICEMONITOR}"
+  APPLY_PROMETHEUSRULE="${ENABLE_PROMETHEUSRULE}"
 
   if [[ "${COMPACT_MODE}" == "true" ]]; then
     MILVUS_PROXY_REPLICAS="1"
