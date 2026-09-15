@@ -2,8 +2,8 @@
   {
     "arch": "amd64",
     "platform": "linux/amd64",
-    "pull": "milvusdb/milvus:v2.6.9",
-    "tag": "sealos.hub:5000/kube4/milvus:v2.6.9",
+    "pull": "milvusdb/milvus:v2.6.23",
+    "tag": "sealos.hub:5000/kube4/milvus:v2.6.23",
     "tar": "milvus-amd64.tar"
   },
   {
@@ -37,15 +37,15 @@
   {
     "arch": "amd64",
     "platform": "linux/amd64",
-    "pull": "apachepulsar/pulsar:3.0.7",
-    "tag": "sealos.hub:5000/kube4/pulsar:3.0.7",
+    "pull": "apachepulsar/pulsar:3.0.17",
+    "tag": "sealos.hub:5000/kube4/pulsar:3.0.17",
     "tar": "pulsar-amd64.tar"
   },
   {
     "arch": "arm64",
     "platform": "linux/arm64",
-    "pull": "milvusdb/milvus:v2.6.9",
-    "tag": "sealos.hub:5000/kube4/milvus:v2.6.9",
+    "pull": "milvusdb/milvus:v2.6.23",
+    "tag": "sealos.hub:5000/kube4/milvus:v2.6.23",
     "tar": "milvus-arm64.tar"
   },
   {
@@ -79,8 +79,8 @@
   {
     "arch": "arm64",
     "platform": "linux/arm64",
-    "pull": "apachepulsar/pulsar:3.0.7",
-    "tag": "sealos.hub:5000/kube4/pulsar:3.0.7",
+    "pull": "apachepulsar/pulsar:3.0.17",
+    "tag": "sealos.hub:5000/kube4/pulsar:3.0.17",
     "tar": "pulsar-arm64.tar"
   }
 ]
