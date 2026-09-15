@@ -10,10 +10,65 @@ on:
       - master
     tags:
       - 'v*'
+  pull_request:
   workflow_dispatch:
 
 jobs:
+  meta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
+      - name: Validate delivery invariants
+        run: |
+          bash -n build.sh
+          bash -n install.sh
+          bash -n scripts/install-overlay.sh
+          python scripts/validate-delivery.py
+
+      - name: Validate Helm rendering
+        run: |
+          cat >/tmp/milvus-auth-values.yaml <<'EOF'
+          extraConfigFiles:
+            user.yaml: |+
+              common:
+                security:
+                  authorizationEnabled: true
+                  defaultRootPassword: "ci-only-password"
+          EOF
+
+          helm lint charts/milvus \
+            -f charts/milvus/archinfra-values.yaml \
+            -f /tmp/milvus-auth-values.yaml
+
+          helm template milvus-ci charts/milvus \
+            -n milvus-system \
+            -f charts/milvus/archinfra-values.yaml \
+            -f /tmp/milvus-auth-values.yaml \
+            --set cluster.enabled=true \
+            --set standalone.enabled=false \
+            --set streaming.enabled=true \
+            --set woodpecker.enabled=true \
+            --set pulsar.enabled=false \
+            --set pulsarv3.enabled=false \
+            >/tmp/milvus-rendered.yaml
+
+          grep -q 'milvusdb/milvus' charts/milvus/Chart.yaml || true
+          grep -q 'authorizationEnabled: true' /tmp/milvus-rendered.yaml
+
   build:
+    needs: meta
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -39,8 +94,27 @@ jobs:
 
       - name: Build installer
         run: |
-          chmod +x build.sh install.sh
+          chmod +x build.sh install.sh scripts/install-overlay.sh
           ./build.sh --arch "${{ matrix.arch }}"
+
+      - name: Validate generated installer help
+        run: |
+          installer="dist/milvus-cluster-installer-${{ matrix.arch }}.run"
+          "$installer" help overview >/tmp/help.txt
+          "$installer" help install >/tmp/help-install.txt
+          grep -q 'Milvus                 2.6.23' /tmp/help.txt
+          grep -q 'lite / standard / large' /tmp/help.txt
+          grep -q 'Authentication         ON' /tmp/help.txt
+          grep -q 'Recommended standard installation' /tmp/help-install.txt
+          if "$installer" help --resource-profile mid >/tmp/legacy-profile.txt 2>&1; then
+            echo 'legacy resource profile mid unexpectedly succeeded' >&2
+            exit 1
+          fi
+
+      - name: Verify checksum
+        run: |
+          cd dist
+          sha256sum -c "milvus-cluster-installer-${{ matrix.arch }}.run.sha256"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
