@@ -1,0 +1,26 @@
+# Archinfra delivery overlay.
+#
+# Keep the vendored upstream chart/dependency skeleton stable while pinning the
+# application versions and delivery defaults that belong to this repository.
+# Embedded etcd and MinIO are intentionally NOT changed in the 0.2.0 hardening
+# release; their upgrade will be evaluated separately.
+
+image:
+  all:
+    tag: v2.6.23
+
+log:
+  format: json
+
+pulsarv3:
+  images:
+    zookeeper:
+      tag: 3.0.17
+    bookie:
+      tag: 3.0.17
+    autorecovery:
+      tag: 3.0.17
+    broker:
+      tag: 3.0.17
+    proxy:
+      tag: 3.0.17
