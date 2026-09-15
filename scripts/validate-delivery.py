@@ -41,18 +41,31 @@ def validate_images() -> None:
         if not images:
             raise SystemExit(f"missing image set for {arch}")
 
-        expected = {
+        expected_pull = {
             "milvus": "milvusdb/milvus:v2.6.23",
             # Explicit freeze requested for this hardening release.
             "etcd": "milvusdb/etcd:3.5.25-r1",
-            "minio": "minio/minio:RELEASE.2024-12-18T13-15-44Z",
+            # Keep the exact frozen MinIO release. Quay is the original chart's
+            # published source; Docker Hub stopped serving this old tag to CI.
+            "minio": "quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z",
             "pulsar": "apachepulsar/pulsar:3.0.17",
         }
-        for name, pull in expected.items():
+        expected_target = {
+            "milvus": "sealos.hub:5000/kube4/milvus:v2.6.23",
+            "etcd": "sealos.hub:5000/kube4/etcd:3.5.25-r1",
+            "minio": "sealos.hub:5000/kube4/minio:RELEASE.2024-12-18T13-15-44Z",
+            "pulsar": "sealos.hub:5000/kube4/pulsar:3.0.17",
+        }
+        for name, pull in expected_pull.items():
             actual = images.get(name, {}).get("pull")
             if actual != pull:
                 raise SystemExit(
                     f"{arch}: {name} pull mismatch: expected {pull!r}, got {actual!r}"
+                )
+            target = images.get(name, {}).get("tag")
+            if target != expected_target[name]:
+                raise SystemExit(
+                    f"{arch}: {name} target mismatch: expected {expected_target[name]!r}, got {target!r}"
                 )
 
         platform = f"linux/{arch}"
