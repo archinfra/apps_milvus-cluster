@@ -6,11 +6,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMP_DIR="${ROOT_DIR}/.build-payload"
 PAYLOAD_DIR="${TEMP_DIR}/payload"
 PAYLOAD_FILE="${TEMP_DIR}/payload.tar.gz"
+ASSEMBLED_INSTALLER="${TEMP_DIR}/installer-assembled.sh"
 DIST_DIR="${ROOT_DIR}/dist"
 IMAGES_DIR="${ROOT_DIR}/images"
 IMAGE_JSON="${IMAGES_DIR}/image.json"
 CHARTS_DIR="${ROOT_DIR}/charts"
 INSTALLER_TEMPLATE="${ROOT_DIR}/install.sh"
+INSTALLER_OVERLAY="${ROOT_DIR}/scripts/install-overlay.sh"
 INSTALLER_BASENAME="milvus-cluster-installer"
 
 ARCH="amd64"
@@ -98,7 +100,9 @@ check_prereqs() {
   command -v docker >/dev/null 2>&1 || die "docker is required"
   command -v python >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1 || die "python or python3 is required"
   [[ -f "${INSTALLER_TEMPLATE}" ]] || die "missing install.sh"
+  [[ -f "${INSTALLER_OVERLAY}" ]] || die "missing scripts/install-overlay.sh"
   [[ -d "${CHARTS_DIR}/milvus" ]] || die "missing charts/milvus"
+  [[ -f "${CHARTS_DIR}/milvus/archinfra-values.yaml" ]] || die "missing charts/milvus/archinfra-values.yaml"
   [[ -f "${IMAGE_JSON}" ]] || die "missing images/image.json"
   grep -q '^__PAYLOAD_BELOW__$' "${INSTALLER_TEMPLATE}" || die "install.sh must contain __PAYLOAD_BELOW__ marker"
 }
@@ -109,6 +113,19 @@ python_cmd() {
   else
     printf 'python3'
   fi
+}
+
+assemble_installer_template() {
+  # Keep the legacy implementation available as proven plumbing, but inject the
+  # canonical 0.2.0 delivery overlay before main "$@" executes. The generated
+  # .run therefore exposes only the hardened user-facing contract.
+  awk '$0 == "main \"$@\"" {exit} {print}' "${INSTALLER_TEMPLATE}" > "${ASSEMBLED_INSTALLER}"
+  printf '\n' >> "${ASSEMBLED_INSTALLER}"
+  cat "${INSTALLER_OVERLAY}" >> "${ASSEMBLED_INSTALLER}"
+  printf '\n' >> "${ASSEMBLED_INSTALLER}"
+  awk 'BEGIN{emit=0} $0 == "main \"$@\"" {emit=1} emit {print}' "${INSTALLER_TEMPLATE}" >> "${ASSEMBLED_INSTALLER}"
+  chmod +x "${ASSEMBLED_INSTALLER}"
+  bash -n "${ASSEMBLED_INSTALLER}" || die "assembled installer failed bash syntax validation"
 }
 
 build_index_for_arch() {
@@ -168,7 +185,7 @@ build_arch() {
     tar -czf "${PAYLOAD_FILE}" .
   )
 
-  cat "${INSTALLER_TEMPLATE}" "${PAYLOAD_FILE}" > "${installer_path}"
+  cat "${ASSEMBLED_INSTALLER}" "${PAYLOAD_FILE}" > "${installer_path}"
   chmod +x "${installer_path}"
   sha256sum "${installer_path}" > "${installer_path}.sha256"
 
@@ -180,6 +197,7 @@ main() {
   check_prereqs
   rm -rf "${TEMP_DIR}"
   mkdir -p "${TEMP_DIR}" "${DIST_DIR}"
+  assemble_installer_template
 
   if [[ "${BUILD_ALL_ARCH}" == "true" ]]; then
     build_arch "amd64" "linux/amd64"
